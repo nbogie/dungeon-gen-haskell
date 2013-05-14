@@ -1,6 +1,4 @@
 module Main where
-import Control.Arrow ((&&&))
-import Data.Maybe (fromMaybe)
 import Debug.Trace
 import Graphics.Gloss.Interface.IO.Game
 import System.Environment (getArgs)
@@ -9,6 +7,7 @@ import System.Random
 
 main ::  IO ()
 main = do
+  putStrLn "press the number keys to snap the box origins to various tolerances"
   gen <- getStdGen
   args <- getArgs
   let display = if elem "-f" args then DMFull else DMWindow
@@ -17,9 +16,21 @@ main = do
 data GS = GS { 
     msgs :: [Float] 
   , particles :: [Particle Rect]
+  , updating :: Bool
+  , tolerance :: Int
+  , gridVisible :: Bool
   } deriving (Show)
 
-initGS gen = GS [] ps
+modParticles ::  ([Particle Rect] -> [Particle Rect]) -> GS -> GS
+modParticles f gs = gs { particles = f (particles gs) }
+
+toggleUpdating ::  GS -> GS
+toggleUpdating gs = gs { updating = not (updating gs) } 
+toggleGridVisibility :: GS -> GS
+toggleGridVisibility gs = gs { gridVisible = not (gridVisible gs) } 
+
+initGS ::  RandomGen g => g -> GS
+initGS gen = GS [] ps True 1 True
   where rs = genStartingRects gen numStartingRects
         ps = rectsToParticles rs
 
@@ -27,8 +38,12 @@ initGS gen = GS [] ps
 data DisplayMode = DMWindow | DMFull
 
 updateState :: Float -> GS -> GS
-updateState f gs = gs { particles = updateParticles $ particles gs }
+updateState _f gs = if updating gs
+  then gs { particles = updateParticles $ particles gs }
+  else gs
 
+
+numStartingRects ::  Int
 numStartingRects = 150
 
 guimain :: (RandomGen g) => DisplayMode -> g ->  IO ()
@@ -56,21 +71,31 @@ guimain dispMode gen = do
 
 
 handleInput :: Event -> GS -> IO GS
-handleInput (EventKey (SpecialKey KeySpace) Down _ _) gs = putStrLn "hello" >> return gs
 handleInput (EventKey k                     Down _ _) gs = return $ handleDown k gs
 handleInput _                                         gs = return gs -- ignore key ups, and other
 
-modParticles f gs = gs { particles = f (particles gs) }
 handleDown ::  Key -> GS -> GS
+handleDown (SpecialKey KeySpace) = toggleUpdating
 handleDown (Char       'r')      = id
+handleDown (Char       'g')      = toggleGridVisibility
 handleDown (SpecialKey KeyDown)  = id
 handleDown (SpecialKey KeyUp)    = id
 handleDown (SpecialKey KeyLeft)  = id
 handleDown (SpecialKey KeyRight) = id
-handleDown (Char       c) | c `elem` "123456789" = modParticles (snapParticlePositions (2*read [c]))
+handleDown (Char       c) | c `elem` "123456789" = applySnap (read [c])
                           | otherwise            = id
 handleDown (MouseButton LeftButton) = id
 handleDown _ = id
+applySnap i = stopUpdates . setTolerance i . modParticles (snapParticlePositions (2*i))
+setTolerance i gs = gs { tolerance = i }
+stopUpdates ::  GS -> GS
+stopUpdates gs = gs { updating = False } 
+
+drawGrid :: Int -> Picture
+drawGrid tol = Color (dark $ dark $ dark$dark$ green) $ Pictures  $
+  [ Line [(-4000, y), (4000, y)] | i<- [-50..50], let y = fromIntegral (i*tol)] ++ 
+  [ Line [(x, -4000), (x, 4000)] | i<- [-50..50], let x = fromIntegral $ i*tol] 
+
 
 drawAxes :: Picture
 drawAxes = Color yellow $ Pictures [
@@ -81,11 +106,18 @@ drawAxes = Color yellow $ Pictures [
 drawState :: GS -> Picture
 drawState gs = Pictures $ [ 
     drawBackground
-  , drawAxes
-  , translate (0) (0) $ Color green $ Pictures $ map drawParticle (particles gs)
+  , scale 5 5 $ Pictures [ 
+      if gridVisible gs then drawGrid (tolerance gs) else blank
+      -- , drawAxes
+    , translate (0) (0) $ Color green $ Pictures $ map drawParticle (particles gs)
+    ]
   ]
 
-drawParticle (Particle (x,y) (vx,vy) rad (Rect w h _)) = translate x y $ rectangleWire w h
+drawParticle ::  Particle Rect -> Picture
+drawParticle (Particle (x,y) (vx,vy) rad (Rect w h _)) = translate x y $ rectangleWire wf hf
+  where wf = fromIntegral w
+        hf = fromIntegral h
+
 drawBackground :: Picture
 drawBackground = Color black $ rectangleSolid 2000 2000 
 

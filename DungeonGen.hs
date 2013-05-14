@@ -3,8 +3,8 @@ import Debug.Trace
 import System.Random
 import Data.List (foldl')
 type Pos = (Float, Float)
-data Rect = Rect { rW::Float
-                 , rH::Float
+data Rect = Rect { rW::Int
+                 , rH::Int
                  , rPos::Pos
                  } deriving (Show)
 
@@ -16,7 +16,7 @@ type Vel = (Float, Float)
 data Particle a = Particle {pPos::Pos, pVel:: Vel, pRad :: Float, pContent:: a} deriving (Show)
 
 rectsToParticles :: [Rect] -> [Particle Rect]
-rectsToParticles = map (\rect@(Rect w h pos) -> Particle pos zeroVel (max w h) rect)
+rectsToParticles = map (\rect@(Rect w h pos) -> Particle pos zeroVel (fromIntegral $ max w h) rect)
 
 updateVels :: [Particle a] -> [Particle a]
 updateVels ps = map (flip updateVelOf ps) ps -- TODO: don't compare to self
@@ -82,12 +82,12 @@ instance Random Rect where
         (h,g'') = randomR (minH, maxH) g'
         angle, radius :: Float
         (angle,g''')   = randomR (0,359) g''
-        (radius,g'''')  = randomR (0,100) g'''
+        (radius,g'''')  = randomR (0,50) g'''
         pos     = toXY angle radius
 
   random = randomR (minRect, maxRect)
-    where minRect = Rect 6 6 origin
-          maxRect = Rect 60 60 origin
+    where minRect = Rect 3 3 origin
+          maxRect = Rect 10 10 origin
           origin = (0,0)
 
 hasFatAspect :: Rect -> Bool
@@ -96,7 +96,7 @@ hasFatAspect r = (min ar (1/ar)) > 0.4
 
 genStartingRects gen n = let rects = take n $ randoms gen
                          in filter hasFatAspect rects
-aspectRatio (Rect w h _) = w/h
+aspectRatio (Rect w h _) = fromIntegral w/ fromIntegral h
 
 main = do
   gen <- getStdGen
