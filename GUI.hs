@@ -14,15 +14,23 @@ main = do
   let display = if elem "-f" args then DMFull else DMWindow
   guimain display gen
 
+data GS = GS { 
+    msgs :: [Float] 
+  , particles :: [Particle Rect]
+  } deriving (Show)
+
+initGS gen = GS [] ps
+  where rs = genStartingRects gen numStartingRects
+        ps = rectsToParticles rs
+
+
 data DisplayMode = DMWindow | DMFull
 
-updateState f gs = gs
-xfoo :: Float -> GS -> IO GS
-xfoo f gs = return gs
+updateState :: Float -> GS -> GS
+updateState f gs = gs { particles = updateParticles $ particles gs }
+
 numStartingRects = 150
 
-initGS gen = GS [] rs
-  where rs = genStartingRects gen numStartingRects
 guimain :: (RandomGen g) => DisplayMode -> g ->  IO ()
 guimain dispMode gen = do
   playIO
@@ -32,7 +40,7 @@ guimain dispMode gen = do
           (initGS gen)
           (return . drawState) -- A function to convert the world into a picture
           (handleInput) -- A function to handle input events
-          (xfoo)
+          (\f g -> return $ updateState f g)
   where
     winHeight DMFull = 1280
     winHeight DMWindow = 900
@@ -46,22 +54,21 @@ guimain dispMode gen = do
 
 
 
-data GS = GS { 
-    msgs :: [Float] 
-  , rects :: [Rect]
-  } deriving (Show)
 
 handleInput :: Event -> GS -> IO GS
 handleInput (EventKey (SpecialKey KeySpace) Down _ _) gs = putStrLn "hello" >> return gs
 handleInput (EventKey k                     Down _ _) gs = return $ handleDown k gs
 handleInput _                                         gs = return gs -- ignore key ups, and other
 
+modParticles f gs = gs { particles = f (particles gs) }
 handleDown ::  Key -> GS -> GS
 handleDown (Char       'r')      = id
 handleDown (SpecialKey KeyDown)  = id
 handleDown (SpecialKey KeyUp)    = id
 handleDown (SpecialKey KeyLeft)  = id
 handleDown (SpecialKey KeyRight) = id
+handleDown (Char       c) | c `elem` "123456789" = modParticles (snapParticlePositions (2*read [c]))
+                          | otherwise            = id
 handleDown (MouseButton LeftButton) = id
 handleDown _ = id
 
@@ -75,10 +82,10 @@ drawState :: GS -> Picture
 drawState gs = Pictures $ [ 
     drawBackground
   , drawAxes
-  , translate (-200) (-200) $ Color green $ Pictures $ map drawRect (rects gs)
+  , translate (0) (0) $ Color green $ Pictures $ map drawParticle (particles gs)
   ]
 
-drawRect (Rect w h (x,y)) = translate (fromIntegral x) (fromIntegral y) $ rectangleWire (fromIntegral w) (fromIntegral h) 
+drawParticle (Particle (x,y) (vx,vy) rad (Rect w h _)) = translate x y $ rectangleWire w h
 drawBackground :: Picture
 drawBackground = Color black $ rectangleSolid 2000 2000 
 
