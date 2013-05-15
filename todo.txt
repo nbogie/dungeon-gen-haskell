@@ -1,4 +1,0 @@
-* Graph A - adt
-* MST with prim's algorithm
-* remove overlapping rooms, or at least those with identical centres, when snapped.  (take the bigger one)?  Graph wants a set of nodes, as does triangulation.
-* don't need to preserve velocity between iterations.  apply a force, have it cause movement, then consider everything stuck again.  So we can also get rid of drag, and use higher velocities, once off.
