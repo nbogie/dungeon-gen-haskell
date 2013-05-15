@@ -2,7 +2,9 @@ module DungeonGen where
 import Debug.Trace
 import System.Random
 import Data.List (foldl')
-type Pos = (Float, Float)
+
+import Types
+
 data Rect = Rect { rW::Int
                  , rH::Int
                  , rPos::Pos
@@ -15,14 +17,26 @@ type Vel = (Float, Float)
 
 data Particle a = Particle {pPos::Pos, pVel:: Vel, pRad :: Float, pContent:: a} deriving (Show)
 
+roomAreaOver min (Particle _ _ _ (Rect w h p)) = w * h >= min
+isRoom = roomAreaOver minRoomArea
+minRoomArea = 35
+
+
+rectPos :: Particle Rect -> Pos
+rectPos (Particle _ _ _ (Rect _ _ pos)) = pos
+
+foo = map rectPos . filter isRoom
 rectsToParticles :: [Rect] -> [Particle Rect]
 rectsToParticles = map (\rect@(Rect w h pos) -> Particle pos zeroVel (fromIntegral $ max w h) rect)
+
+updateRectWithParticlePosition :: Particle Rect -> Particle Rect
+updateRectWithParticlePosition (Particle p v r rect) = (Particle p v r (rect { rPos = p }))
 
 updateVels :: [Particle a] -> [Particle a]
 updateVels ps = map (flip updateVelOf ps) ps -- TODO: don't compare to self
 -- TODO: add drag
 
-snapParticlePositions n = map (snapParticlePosition n)
+snapParticlePositions n = map (updateRectWithParticlePosition. snapParticlePosition n)
 
 snapParticlePosition :: Int -> Particle a -> Particle a
 snapParticlePosition n (Particle p v r c) = (Particle p' v r c)
@@ -36,12 +50,13 @@ snapPos tolerance (x,y) = (f x, f y)
 
 addVec (x,y) (a,b) = (x+a, y+b)
 minVel = 0.1
+
 updateParticles ps = updatePosns $ updateVels ps
 updatePosns = map updatePosn
 updatePosn (Particle (x,y) (vx, vy) r c) = (Particle (x+vx, y+vy) (vx,vy) r c)
 modVel f (Particle p v r c ) = (Particle p (f v)  r c)
 applyDrag p = modVel (f) p
-  where f v = if lenVec v < minVel then (0,0) else multVecScalar v 0.7
+  where f v = if lenVec v < minVel then (0,0) else multVecScalar v 0.4
 updateVelOf :: Particle a -> [Particle a] -> Particle a
 updateVelOf p@(Particle pos vel rad content) others = applyDrag $ (Particle pos (addVec vel velOffset) rad content)
   where
