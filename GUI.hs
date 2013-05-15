@@ -1,5 +1,5 @@
 module Main where
-import Debug.Trace
+-- import Debug.Trace
 import Graphics.Gloss.Interface.IO.Game
 import System.Environment (getArgs)
 import DungeonGen hiding (main)
@@ -23,7 +23,7 @@ data GS = GS {
   , tolerance :: Int
   , gridVisible :: Bool
   , minArea :: Int
-  , graph :: Graph Pos
+  , graph :: Maybe ( Graph Pos)
   } deriving (Show)
 
 modMinArea ::  (Int -> Int) -> GS -> GS
@@ -37,10 +37,10 @@ toggleGridVisibility :: GS -> GS
 toggleGridVisibility gs = gs { gridVisible = not (gridVisible gs) } 
 
 initGS ::  RandomGen g => g -> GS
-initGS gen = GS [] ps True 1 True 35 gr
+initGS gen = GS [] ps True 9 True 40 gr
   where rs = genStartingRects gen numStartingRects
         ps = rectsToParticles rs
-        gr = makeRandomGraph gen ((-300,-300),(300,300))
+        gr = Nothing
 
 
 data DisplayMode = DMWindow | DMFull
@@ -120,22 +120,19 @@ drawState gs = Pictures $ [
   , scale 5 5 $ Pictures [ 
       if gridVisible gs then drawGrid (tolerance gs) else blank
       -- , drawAxes
---    , translate (0) (0) $ Color green $ Pictures $ map drawParticle (particles gs)
---     , translate (0) (0) $ Color (dark $ dark red) $ drawTris $ triangulate $ map rectPos $ filter (roomAreaOver (minArea gs)) (particles gs)
+     , translate (0) (0) $ Color green $ Pictures $ map drawParticle (particles gs)
+     -- , translate (0) (0) $ Color (dark $ dark yellow) $ drawTris $ triangles 
+     , translate (0) (0) $ Color white $ drawGraph mst
     ]
-    , translate (0) (0) $ Color (dark blue) $ drawGraph (graph gs)
-    , translate (0) (0) $ Color red $ drawGraph mst
-    , translate (2) (2) $ Color red $ drawGraph mst
-    , translate (6) (6) $ Color yellow $ drawGraph mst2
-    , translate (4) (4) $ Color yellow $ drawGraph mst2
   ]
   where 
-    mst  = makeMST $ graph gs
-    mst2 = makeMST2 $ graph gs
+    triangles = triangulate $ map rectPos $ filter (roomAreaOver (minArea gs)) (particles gs)
+    mst  = makeMST $ trisToGraph triangles
+
 drawGraph :: Graph Pos -> Picture
 drawGraph (Graph ns es) = Pictures [Pictures $ map drawNode ns, Pictures $ map drawEdge es]
   where
-    drawNode (x,y) = translate x y $ rectangleSolid 2 2
+    drawNode (x,y) = translate x y $ rectangleSolid 1 1
     drawEdge (Edge (p1,p2)) = Line [p1,p2]
 drawTris :: [Triangle] -> Picture
 drawTris = Pictures . map drawTri
@@ -143,7 +140,7 @@ drawTri ::  (Point, Point, Point) -> Picture
 drawTri (p1,p2,p3) = Line [p1,p2,p3]
 
 drawParticle ::  Particle Rect -> Picture
-drawParticle (Particle (x,y) _vel rad (Rect w h _)) = translate x y $ rectangleWire wf hf
+drawParticle (Particle (x,y) _vel _rad (Rect w h _)) = translate x y $ rectangleWire wf hf
   where wf = fromIntegral w
         hf = fromIntegral h
 
