@@ -1,0 +1,7 @@
+*.swp
+*.hi
+*.o
+dist
+report.html
+tags
+.exrc

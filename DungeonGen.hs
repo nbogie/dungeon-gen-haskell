@@ -11,14 +11,14 @@ import Types
 data Rect = Rect { rW::Int
                  , rH::Int
                  , rPos::Pos
-                 } deriving (Show)
+                 } deriving (Show, Eq)
 
 toXY :: Float -> Float -> (Float, Float)
 toXY angle radius = (radius * sin angle, radius * cos angle)
 
 type Vel = (Float, Float)
 
-data Particle a = Particle {pPos::Pos, pVel:: Vel, pRad :: Float, pContent:: a} deriving (Show)
+data Particle a = Particle {pPos::Pos, pVel:: Vel, pRad :: Float, pContent:: a} deriving (Show, Eq)
 
 roomAreaOver ::  Int -> Particle Rect -> Bool
 roomAreaOver mn (Particle _ _ _ (Rect w h _p)) = w * h >= mn
@@ -154,6 +154,12 @@ genStartingRects gen n = let rects = take n $ randoms gen
                          in filter hasFatAspect rects
 aspectRatio ::  Rect -> Float
 aspectRatio (Rect w h _) = fromIntegral w/ fromIntegral h
+
+pickOne :: (RandomGen g) => [a] -> g -> (a, g)
+pickOne xs gen = (xs !! i, g')
+  where (i, g') = randomR (0, length xs - 1) gen
+
+
 
 main ::  IO ()
 main = do

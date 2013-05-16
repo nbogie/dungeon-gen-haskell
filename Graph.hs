@@ -1,8 +1,11 @@
-module Graph (Graph(..), Edge(..), makeRandomGraph, trisToGraph, makeMST, summarizeGraph) where
-import Types
+module Graph (Graph(..), Edge(..), makeRandomGraph, trisToGraph, makeMST, summarizeGraph, addEdgeToGraph, isIn, addSomeEdgesFrom, genRectiLines, Ln) where
+import Data.List (nub, (\\), find)
 import System.Random
 import Triangulation
-import Data.List (nub, (\\), find)
+
+import Types
+import Shuffle (shuffle)
+
 data Edge a = Edge (a, a) deriving (Eq, Show)
 
 data Graph a = Graph { gNodes :: [a]
@@ -33,19 +36,37 @@ makeMST (Graph (n:_) es) = connect (Graph [n] []) es
     connect gr edgePool = case findEdge edgePool gr of
                             Just e  -> connect (add e gr) (edgePool \\ [e])
                             Nothing -> gr
-
-add :: (Eq a) => Edge a -> Graph a -> Graph a
-add e@(Edge (p1,p2)) (Graph ns es) = Graph (nub $p1:p2:ns) (e:es)
+    add = addEdgeToGraph
+-- todo: use sets, or ensure no duplicate edges added here
+addEdgeToGraph :: (Eq a) => Edge a -> Graph a -> Graph a
+addEdgeToGraph e@(Edge (p1,p2)) (Graph ns es) = Graph (nub $p1:p2:ns) (e:es)
 
 findEdge :: (Eq a) => [Edge a] -> Graph a -> (Maybe (Edge a))
 findEdge es gr = find (isHalfIn gr) es
 
 isHalfIn :: (Eq a) => Graph a -> Edge a -> Bool
-isHalfIn (Graph ns _) (Edge (p1,p2)) = isIn p1 /= isIn p2
-  where isIn p = p `elem` ns
+isHalfIn (Graph ns _) (Edge (p1,p2)) = nodeIn p1 /= nodeIn p2
+  where nodeIn p = p `elem` ns
+
+isIn :: (Eq a) => Graph a -> Edge a -> Bool
+isIn g e = e `elem` gEdges g
 
 summarizeGraph :: Graph a -> String
 summarizeGraph (Graph ns es) = show ("Graph with ", length ns, " nodes and ", length es, " edges")
+
+addSomeEdgesFrom :: (RandomGen g, Eq a) => g -> Float -> Graph a -> Graph a -> Graph a
+addSomeEdgesFrom gen pct superset orig = foldl (flip addEdgeToGraph) orig edgesToAdd
+  where
+    edgesToAdd = take (round (pct * fromIntegral (length unusedEdges))) unusedEdges 
+    unusedEdges = fst $ shuffle gen $ filter (not . isIn orig) (gEdges superset)
+
+type Ln = [Pos]
+
+genRectiLines :: (Graph Pos) -> [Ln]
+genRectiLines (Graph ns es) = map rectiLine es
+  where
+    rectiLine :: Edge Pos -> Ln
+    rectiLine (Edge ((x1,y1), (x2,y2))) = [(x1,y1), (x1,y2), (x2,y2)]
 
 _demo ::  IO ()
 _demo = do
