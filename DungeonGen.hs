@@ -1,7 +1,9 @@
 module DungeonGen where
 -- import Debug.Trace
 import System.Random
+import Data.Random.Normal
 import Data.List (foldl')
+import qualified Data.Map as M
 
 import Types
 
@@ -11,17 +13,20 @@ import Types
 data Rect = Rect { rW::Int
                  , rH::Int
                  , rPos::Pos
-                 } deriving (Show, Eq)
+                 } deriving (Show, Eq, Read)
 
 toXY :: Float -> Float -> (Float, Float)
 toXY angle radius = (radius * sin angle, radius * cos angle)
 
 type Vel = (Float, Float)
 
-data Particle a = Particle {pPos::Pos, pVel:: Vel, pRad :: Float, pContent:: a} deriving (Show, Eq)
+data Particle a = Particle {pPos::Pos, pVel:: Vel, pRad :: Float, pContent:: a} deriving (Show, Eq, Read)
 
 roomAreaOver ::  Int -> Particle Rect -> Bool
-roomAreaOver mn (Particle _ _ _ (Rect w h _p)) = w * h >= mn
+roomAreaOver mn p = rectArea (pContent p)  >= mn
+
+rectArea ::  Rect -> Int
+rectArea (Rect w h _p) = w * h
 
 isRoom ::  Particle Rect -> Bool
 isRoom = roomAreaOver minRoomArea
@@ -133,17 +138,26 @@ instance Random Rect where
     if hasFatAspect r then (r,g'''') else randomR lims g''''
       where 
         r       = Rect w h pos
-        (w,g')  = randomR (minW, maxW) gen
-        (h,g'') = randomR (minH, maxH) g'
+        (w,g')  = randomDim gen
+        (h,g'') = randomDim g'
+
         angle, radius :: Float
         (angle,g''')   = randomR (0,359) g''
         (radius,g'''')  = randomR (0,50) g'''
         pos     = toXY angle radius
 
+
   random = randomR (minRect, maxRect)
-    where minRect = Rect 3 3 origin
-          maxRect = Rect 10 10 origin
+    where minRect = Rect 1 1 origin
+          maxRect = Rect 5 5 origin
           origin = (0,0)
+
+
+randomDim :: (RandomGen g) => g -> (Int, g)
+randomDim g = (d, g')
+  where 
+      d     = 2 * round (2+abs n) - 1
+      (n,g') = normal' (1::Float, 2::Float) g
 
 hasFatAspect :: Rect -> Bool
 hasFatAspect r = (min ar (1/ar)) > 0.4
@@ -164,4 +178,14 @@ pickOne xs gen = (xs !! i, g')
 main ::  IO ()
 main = do
   gen <- getStdGen
-  print $ genStartingRects gen 10
+  let rs = genStartingRects gen 100
+  print $ histOf rW rs
+  print $ histOf rH rs
+  print $ histOf rectArea rs
+
+histOf ::  (Num a, Ord b) => (a1 -> b) -> [a1] -> M.Map b a
+histOf f = hist . map f 
+hist ::  (Num a, Ord b) => [b] -> M.Map b a
+hist ns = foldl' f M.empty ns
+  where
+    f m k = M.insertWith (+) k 1 m

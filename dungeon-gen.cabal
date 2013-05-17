@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 -- The name of the package.
-name:                DungeonGen
+name:                dungeon-gen
 
 -- The package version.  See the Haskell package versioning policy (PVP) 
 -- for standards guiding when and how versions should be incremented.
@@ -42,7 +42,7 @@ build-type:          Simple
 cabal-version:       >=1.8
 
 
-executable DungeonGen
+executable dungeon-gen
   -- .hs or .lhs file containing the Main module.
   main-is: GUI.hs
   
@@ -50,7 +50,7 @@ executable DungeonGen
   -- other-modules:       
   
   -- Other library packages from which modules are imported.
-  build-depends:       base ==4.5.*, delaunay ==0.1.*, random ==1.0.*, AC-Vector ==2.3.*, gloss ==1.7.*, containers ==0.5.*
+  build-depends:       base ==4.5.*, delaunay ==0.1.*, random ==1.0.*, AC-Vector ==2.3.*, gloss ==1.7.*, containers ==0.5.*, pretty-show == 1.5.*, normaldistribution == 1.1.*
 
 source-repository head
      type:     git
