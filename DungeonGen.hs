@@ -192,8 +192,9 @@ pickOne :: (RandomGen g) => [a] -> g -> (a, g)
 pickOne xs gen = (xs !! i, g')
   where (i, g') = randomR (0, length xs - 1) gen
 
-centreBounds :: [Pos] -> ((Float, Float), (Float, Float))
-centreBounds ps = ((leftX, bottomY), (rightX, topY))
+centreBounds :: [Pos] -> Maybe (Pos, Pos)
+centreBounds [] = Nothing
+centreBounds ps = Just ((leftX, bottomY), (rightX, topY))
   where 
     topY    = maximum ys
     bottomY = minimum ys

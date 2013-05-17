@@ -1,5 +1,6 @@
 module Main where
 -- import Debug.Trace
+import Data.Maybe (fromMaybe)
 import Data.List ((\\))
 import qualified Data.Map as M
 import Graphics.Gloss.Interface.IO.Game
@@ -91,10 +92,13 @@ computeGraphs gen ps minArea =
     ls                  = genRectiLines mstWithCycles
     bigRoomPs           = filter (roomAreaOver minArea) ps
     intersectedRoomsPs  = findIntersectedRooms ls (ps \\ bigRoomPs)
-    bounds              = centreBounds $ map (rPos. pContent) bigRoomPs
-    fillerPs            = rectsToParticles $ generateFillerFor bounds ps
+    boundsM             = centreBounds $ map (rPos. pContent) bigRoomPs
+    fillerPs            = rectsToParticles $ generateFillerFor (fromMaybe defaultFillerBounds boundsM) ps
     intersectedFillerPs = findIntersectedRooms ls fillerPs
 
+-- how much to fill in if there are no major rooms
+defaultFillerBounds :: (Pos, Pos)
+defaultFillerBounds = ((-50,-50), (50, 50))
 
  
 
@@ -198,8 +202,8 @@ drawAxes = Color yellow $ Pictures [
 drawBounds :: [Particle Rect] -> Picture
 drawBounds ps = translate x y $ rectangleWire w h
   where 
-    (w,h,(x,y)) = boundsToGlossRect $ bounds
-    bounds      = centreBounds $ map (rPos . pContent) ps
+    (w,h,(x,y)) = boundsToGlossRect (fromMaybe defaultFillerBounds boundsM)
+    boundsM     = centreBounds $ map (rPos . pContent) ps
 
 boundsToGlossRect :: (Fractional t, Fractional t1) =>((t, t1), (t, t1)) -> (t, t1, (t, t1))
 boundsToGlossRect ((x1,y1), (x2,y2)) = (w,h,(x0,y0))
