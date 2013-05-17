@@ -2,10 +2,11 @@
 module Main where
 -- import Debug.Trace
 import Data.List ((\\))
+import qualified Data.Map as M
 import Graphics.Gloss.Interface.IO.Game
 import System.Environment (getArgs)
 import System.Random
-import qualified Data.Map as M
+import Text.Show.Pretty (ppShow)
 import DungeonGen hiding (main)
 import Graph 
 import Triangulation
@@ -48,7 +49,7 @@ initGS ::  StdGen -> GS
 initGS gen = GS ps True 9 True minArea grs visbs gen
   where (ps, grs) = createParticlesAndGraphs gen minArea 
         minArea = 40
-        visbs = let t = True; f = False in M.fromList $ zip [1..9] [f,t,t,f,t,f,t,f,f]
+        visbs = let t = True; f = False in M.fromList $ zip [1..9] [t,t,t,f,f,f,t,f,f]
 
 -- initial reation of random [Particle Rect]. common to init and reinit of the GS
 createParticlesAndGraphs :: RandomGen g => g -> Int -> ([Particle Rect], Graphs Pos)
@@ -163,6 +164,9 @@ handleInput :: Event -> GS -> IO GS
 handleInput (EventKey (Char 'r') Down _ _) gs            = do
   gen <- newStdGen
   return $ reinitGS gen gs
+handleInput (EventKey (Char 'd') Down _ _) gs            = do
+  _ <- writeFile "dump.txt" (ppShow (gGraphs gs))
+  return gs
 
 handleInput (EventKey (Char c) Down mods _) gs | c `elem` "123456789" = 
   if ctrl mods == Down
@@ -180,8 +184,10 @@ handleDown (SpecialKey KeyLeft)  = id
 handleDown (SpecialKey KeyRight) = id
 handleDown (MouseButton LeftButton) = id
 handleDown _ = id
+
 toggleVisibility :: Int -> GS -> GS
 toggleVisibility i gs = gs { gVisibilities = M.adjust not i (gVisibilities gs) }
+
 applySnap :: Int -> GS -> GS
 applySnap i = stopUpdates . recomputeGraphs . modParticles updateRectsWithParticlePositions . setTolerance i . modParticles (snapParticlePositions (2*i))
 
@@ -209,17 +215,26 @@ drawState gs = Pictures $ [
   , scale 5 5 $ Pictures [ 
       if gGridVisible gs then drawGrid (gTolerance gs) else blank
       -- , drawAxes
-     , translate (0) (0) $ onlyOn 1 $ Color green $ Pictures $ map drawParticle (gParticles gs)
-     , translate (0) (0) $ onlyOn 2 $ Color (dark $ dark blue) $ Pictures $ map drawParticle (gsIntersectedRoomPs grs) 
-     , translate (0) (0) $ onlyOn 3 $ Color green $ Pictures $ map drawParticle (gsBigRoomPs grs) 
-     , translate (0) (0) $ onlyOn 4 $ Color (dark $ dark yellow) $ drawGraph $ gsTriGraph grs
-     , translate (0) (0) $ onlyOn 5 $ Color red $ drawGraph (gsMSTWithCycles grs)
-     , translate (0) (0) $ onlyOn 6 $ Color white $ drawGraph (gsMST grs)
-     , translate (0) (0) $ onlyOn 7 $ Color yellow $ drawLines (gsRectiLines grs)
+     , translate (0) (0) $ onlyOn 1 $ Color ddddgreen $ Pictures $ map drawParticle (gParticles gs)
+     , translate (0) (0) $ onlyOn 2 $ Color ddgreen   $ Pictures $ map drawParticle (gsIntersectedRoomPs grs) 
+     , translate (0) (0) $ onlyOn 7 $ Color yellow   $ drawLines (gsRectiLines grs)
+     , translate (0) (0) $ onlyOn 3 $ Color (light green)    $ Pictures $ map drawParticle (gsBigRoomPs grs) 
+     , translate (0) (0) $ onlyOn 4 $ Color ddyellow $ drawGraph $ gsTriGraph grs
+     , translate (0) (0) $ onlyOn 5 $ Color red      $ drawGraph (gsMSTWithCycles grs)
+     , translate (0) (0) $ onlyOn 6 $ Color white    $ drawGraph (gsMST grs)
     ]
   ]
   where grs = gGraphs gs 
         onlyOn n pic = if gVisibilities gs M.! n then pic else Blank
+
+        dddddgreen = dark . dark . dark . dark . dark $ green
+        ddddgreen = dark . dark . dark . dark $ green
+        dddgreen = dark . dark . dark $ green
+        ddgreen  = dark . dark $ green
+        dgreen  = dark  green
+        ddblue   = dark . dark $ blue
+        ddyellow = dark . dark $ yellow
+        dddblue  = dark . dark . dark $ blue
 
 
 drawGraph :: Graph Pos -> Picture
@@ -235,7 +250,7 @@ drawLines = Pictures . map drawLine
 drawLine ps = Line ps
 
 drawParticle ::  Particle Rect -> Picture
-drawParticle (Particle (x,y) _vel _rad (Rect w h _)) = translate x y $ rectangleWire wf hf
+drawParticle (Particle (x,y) _vel _rad (Rect w h _)) = translate x y $ rectangleSolid wf hf
   where wf = fromIntegral w
         hf = fromIntegral h
 
