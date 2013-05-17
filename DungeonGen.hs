@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards #-}
 module DungeonGen where
 -- import Debug.Trace
 import System.Random
@@ -6,21 +7,38 @@ import Data.List (foldl')
 import qualified Data.Map as M
 
 import Types
-
+import Graph
 
 -- an implementation roughly following the tinykeep writeup on reddit/r/gamedev:
 -- http://www.reddit.com/r/gamedev/comments/1dlwc4/procedural_dungeon_generation_algorithm_explained/
-data Rect = Rect { rW::Int
-                 , rH::Int
-                 , rPos::Pos
-                 } deriving (Show, Eq, Read)
+data Rect = Rect { 
+    rW   :: Int
+  , rH   :: Int
+  , rPos :: Pos
+  } deriving (Show, Eq, Read)
 
-toXY :: Float -> Float -> (Float, Float)
-toXY angle radius = (radius * sin angle, radius * cos angle)
+angleRadToXY :: Float -> Float -> (Float, Float)
+angleRadToXY angle radius = (radius * sin angle, radius * cos angle)
 
 type Vel = (Float, Float)
 
-data Particle a = Particle {pPos::Pos, pVel:: Vel, pRad :: Float, pContent:: a} deriving (Show, Eq, Read)
+occupied :: [Rect] -> Pos -> Bool
+occupied rs p = any (occupiedBy p) rs
+
+occupiedBy ::  (Float, Float) -> Rect -> Bool
+occupiedBy (x,y) (Rect w h (rx,ry)) = x `within` (rx `extendedTo` fi w) &&
+                                      y `within` (ry `extendedTo` fi h)
+  where
+    fi                 = fromIntegral
+    extendedTo v range = (v-halfR, v+halfR) where halfR = range / 2
+    within v (mn,mx)   = v > mn && v < mx
+
+data Particle a = Particle { 
+    pPos    :: Pos
+  , pVel    :: Vel
+  , pRad    :: Float
+  , pContent:: a
+  } deriving (Show, Eq, Read)
 
 roomAreaOver ::  Int -> Particle Rect -> Bool
 roomAreaOver mn p = rectArea (pContent p)  >= mn
@@ -31,8 +49,8 @@ rectArea (Rect w h _p) = w * h
 isRoom ::  Particle Rect -> Bool
 isRoom = roomAreaOver minRoomArea
 
-minRoomArea ::  Int
-minRoomArea = 35
+minRoomArea :: Int
+minRoomArea = 40
 
 rectPos :: Particle Rect -> Pos
 rectPos (Particle _ _ _ (Rect _ _ pos)) = pos
@@ -134,8 +152,10 @@ distance (x1,y1) (x2,y2) = sqrt (sqr deltaX  + sqr deltaY)
 
 -- inefficient, but we don't care just now
 instance Random Rect where
-  randomR lims@(Rect minW minH _, Rect maxW maxH _) gen = 
-    if hasFatAspect r then (r,g'''') else randomR lims g''''
+  -- TODO: generate within given range, or don't use an instance of Random
+  -- (This design doesn't fit well with non-uniform distributions)
+  randomR _lims gen = 
+    if hasFatAspect r then (r,g'''') else randomR _lims g''''
       where 
         r       = Rect w h pos
         (w,g')  = randomDim gen
@@ -143,20 +163,18 @@ instance Random Rect where
 
         angle, radius :: Float
         (angle,g''')   = randomR (0,359) g''
-        (radius,g'''')  = randomR (0,50) g'''
-        pos     = toXY angle radius
-
+        (radius,g'''') = randomR (0,50) g'''
+        pos            = angleRadToXY angle radius
 
   random = randomR (minRect, maxRect)
     where minRect = Rect 1 1 origin
           maxRect = Rect 5 5 origin
           origin = (0,0)
 
-
 randomDim :: (RandomGen g) => g -> (Int, g)
 randomDim g = (d, g')
   where 
-      d     = 2 * round (2+abs n) - 1
+      d      = 2 * round (2+abs n) - 1
       (n,g') = normal' (1::Float, 2::Float) g
 
 hasFatAspect :: Rect -> Bool
@@ -166,6 +184,7 @@ hasFatAspect r = (min ar (1/ar)) > 0.4
 genStartingRects ::  RandomGen g => g -> Int -> [Rect]
 genStartingRects gen n = let rects = take n $ randoms gen
                          in filter hasFatAspect rects
+
 aspectRatio ::  Rect -> Float
 aspectRatio (Rect w h _) = fromIntegral w/ fromIntegral h
 
@@ -173,19 +192,68 @@ pickOne :: (RandomGen g) => [a] -> g -> (a, g)
 pickOne xs gen = (xs !! i, g')
   where (i, g') = randomR (0, length xs - 1) gen
 
+centreBounds :: [Pos] -> ((Float, Float), (Float, Float))
+centreBounds ps = ((leftX, bottomY), (rightX, topY))
+  where 
+    topY    = maximum ys
+    bottomY = minimum ys
+    leftX   = minimum xs
+    rightX  = maximum xs
+    xs      = map fst ps
+    ys      = map snd ps
+
+generateFillerFor :: (Pos, Pos) -> [Particle Rect] -> [Rect]
+generateFillerFor ((x1,y1), (x2,y2)) ps = newRects
+  where 
+    newRects = [Rect 1 1 (x,y) | x <- [x1..x2], y<-[y1..y2]
+                               , (not . occupied currRects) (x,y)]
+    currRects = map pContent ps
+
+findIntersectedRooms :: [Ln] -> [Particle Rect] -> [Particle Rect]
+findIntersectedRooms rectiLines ps = [ p | p<- ps, l <- allSegs rectiLines, intersects p l ]
+  where
+    intersects particle (p1, p2) = not $ segClearsBox p1 p2 roomLowerLeft roomUpperRight
+      where 
+        (roomLowerLeft, roomUpperRight) = (roomPos `addVec` (-halfW, -halfH), 
+                                           roomPos `addVec` (halfW, halfH))
+        (Rect w h roomPos) = pContent particle
+        halfW = fromIntegral w / 2
+        halfH = fromIntegral h / 2
+
+    allSegs :: [Ln] -> [(Pos, Pos)]
+    allSegs = concatMap segs
+    segs points = zip points (drop 1 points)
 
 
-main ::  IO ()
+-- taken straight from gloss.  license?
+-- | Check if line segment (P1-P2) clears a box (P3-P4) by being well outside it.
+segClearsBox 
+  :: Pos      -- ^ P1 First point of segment. 
+  -> Pos      -- ^ P2 Second point of segment.
+  -> Pos      -- ^ P3 Lower left point of box.
+  -> Pos      -- ^ P4 Upper right point of box.
+  -> Bool
+
+segClearsBox (x1, y1) (x2, y2) (xa, ya) (xb, yb)
+  | x1 < xa, x2 < xa    = True
+  | x1 > xb, x2 > xb    = True
+  | y1 < ya, y2 < ya    = True
+  | y1 > yb, y2 > yb    = True
+  | otherwise           = False
+
+main :: IO ()
 main = do
   gen <- getStdGen
   let rs = genStartingRects gen 100
-  print $ histOf rW rs
-  print $ histOf rH rs
-  print $ histOf rectArea rs
+  print $ (histOf rW rs :: M.Map Int Int)
+  print $ (histOf rH rs :: M.Map Int Int)
+  print $ (histOf rectArea rs :: M.Map Int Int)
 
 histOf ::  (Num a, Ord b) => (a1 -> b) -> [a1] -> M.Map b a
 histOf f = hist . map f 
+
 hist ::  (Num a, Ord b) => [b] -> M.Map b a
 hist ns = foldl' f M.empty ns
   where
     f m k = M.insertWith (+) k 1 m
+

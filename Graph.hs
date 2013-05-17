@@ -1,4 +1,14 @@
-module Graph (Graph(..), Edge(..), makeRandomGraph, trisToGraph, makeMST, summarizeGraph, addEdgeToGraph, isIn, addSomeEdgesFrom, genRectiLines, Ln) where
+module Graph ( Graph(..)
+             , Edge(..)
+             , makeRandomGraph
+             , trisToGraph
+             , makeMST
+             , summarizeGraph
+             , addEdgeToGraph
+             , isIn
+             , addSomeEdgesFrom
+             , genRectiLines
+             , Ln) where
 import Data.List (nub, (\\), find)
 import System.Random
 import Triangulation
@@ -63,7 +73,7 @@ addSomeEdgesFrom gen pct superset orig = foldl (flip addEdgeToGraph) orig edgesT
 type Ln = [Pos]
 
 genRectiLines :: (Graph Pos) -> [Ln]
-genRectiLines (Graph ns es) = map rectiLine es
+genRectiLines (Graph _ es) = map rectiLine es
   where
     rectiLine :: Edge Pos -> Ln
     rectiLine (Edge ((x1,y1), (x2,y2))) = [(x1,y1), (x1,y2), (x2,y2)]
