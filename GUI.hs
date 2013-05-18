@@ -28,6 +28,7 @@ data GS = GS {
   , gTolerance    :: Int
   , gGridVisible  :: Bool
   , gMinArea      :: Int
+  , gCyclesPct    :: Float
   , gGraphs       :: Graphs Pos
   , gVisibilities :: M.Map Int Bool
   , gGen          :: StdGen
@@ -47,25 +48,35 @@ data Graphs a = Graphs  {
 
 reinitGS :: StdGen -> GS -> GS
 reinitGS gen gs = GS ps (gUpdating gs) (gTolerance gs) (gGridVisible gs)
-                     (gMinArea gs) grs (gVisibilities gs) gen 
-  where (ps, grs) = createParticlesAndGraphs gen (gMinArea gs)
+                     (gMinArea gs) (gCyclesPct gs) grs (gVisibilities gs) gen 
+  where (ps, grs) = createParticlesAndGraphs gen (gMinArea gs) (gCyclesPct gs)
 
 initGS ::  StdGen -> GS
-initGS gen = GS ps True 9 True minArea grs visbs gen
-  where (ps, grs) = createParticlesAndGraphs gen minArea 
-        minArea = 40
-        visbs = let t = True; f = False in M.fromList $ zip [1..9] [t,t,t,f,f,f,t,f,f]
+initGS gen = GS ps True 9 True minArea cyclesPct grs visbs gen
+  where 
+        (ps, grs) = createParticlesAndGraphs gen minArea cyclesPct
+        minArea   = 60
+        cyclesPct = 0.10
+        visbs     = M.fromList $ zip [1..9] [t,t,t,f,f,f,f,t,f] where t=True; f=False
 
 -- initial reation of random [Particle Rect]. common to init and reinit of the GS
-createParticlesAndGraphs :: RandomGen g => g -> Int -> ([Particle Rect], Graphs Pos)
-createParticlesAndGraphs gen minArea = (ps, grs)
+createParticlesAndGraphs :: RandomGen g => g -> Int -> Float -> ([Particle Rect], Graphs Pos)
+createParticlesAndGraphs gen minArea cyclesPct = (ps, grs)
   where
     rs = genStartingRects gen numStartingRects
     ps = rectsToParticles rs
-    grs = computeGraphs gen ps minArea
+    grs = computeGraphs gen ps minArea cyclesPct
 
 modMinArea ::  (Int -> Int) -> GS -> GS
-modMinArea f gs = gs { gMinArea = f $ gMinArea gs } 
+modMinArea f gs = recomputeGraphs $ gs { gMinArea = f $ gMinArea gs } 
+
+modCyclesPct ::  (Float -> Float) -> GS -> GS
+modCyclesPct f gs = recomputeGraphs $ gs'
+  where 
+    gs' = gs { gCyclesPct = limit (0,1) $ f $ gCyclesPct gs } 
+    limit (mn,mx) v | v < mn    = mn
+                    | v > mx    = mx
+                    | otherwise = v
 
 modParticles ::  ([Particle Rect] -> [Particle Rect]) -> GS -> GS
 modParticles f gs = gs { gParticles = f (gParticles gs) }
@@ -77,18 +88,18 @@ toggleGridVisibility :: GS -> GS
 toggleGridVisibility gs = gs { gGridVisible = not (gGridVisible gs) } 
 
 recomputeGraphs :: GS -> GS
-recomputeGraphs gs = gs { gGraphs = computeGraphs gen (gParticles gs) (gMinArea gs) }
+recomputeGraphs gs = gs { gGraphs = computeGraphs gen (gParticles gs) (gMinArea gs) (gCyclesPct gs)}
   where 
     gen = gGen gs
 
-computeGraphs :: RandomGen g => g -> [Particle Rect] -> Int -> Graphs Pos
-computeGraphs gen ps minArea = 
+computeGraphs :: RandomGen g => g -> [Particle Rect] -> Int -> Float -> Graphs Pos
+computeGraphs gen ps minArea cyclesPct = 
   Graphs bigRoomPs triGraph mst mstWithCycles ls intersectedRoomsPs fillerPs intersectedFillerPs
   where
     triangles           = triangulate $ map rectPos $ bigRoomPs
     mst                 = makeMST triGraph
     triGraph            = trisToGraph triangles
-    mstWithCycles       = addSomeEdgesFrom gen (0.10) triGraph mst
+    mstWithCycles       = addSomeEdgesFrom gen cyclesPct triGraph mst
     ls                  = genRectiLines mstWithCycles
     bigRoomPs           = filter (roomAreaOver minArea) ps
     intersectedRoomsPs  = findIntersectedRooms ls (ps \\ bigRoomPs)
@@ -110,7 +121,7 @@ updateState _f gs = do
   -- gen <- newStdGen
   return $ if gUpdating gs
              then gs { gParticles = newParticles
-                     , gGraphs = computeGraphs (gGen gs) newParticles (gMinArea gs)
+                     , gGraphs = computeGraphs (gGen gs) newParticles (gMinArea gs) (gCyclesPct gs)
                      }
              else gs
     where 
@@ -126,20 +137,20 @@ guimain :: DisplayMode -> StdGen  ->  IO ()
 guimain dispMode gen = do
   playIO
           (display dispMode)
-          white -- background colour
-          30 -- number of simulation steps to take for each second of real time
+          (black)              -- background colour
+          30                   -- number of simulation steps to take for each second of real time
           (initGS gen)
           (return . drawState) -- A function to convert the world into a picture
-          (handleInput) -- A function to handle input events
+          (handleInput)        -- A function to handle input events
           updateState
   where
     winHeight DMFull = 1280
     winHeight DMWindow = 900
     display DMFull = FullScreen (winHeight DMFull, 800)
     display DMWindow = 
-      (InWindow "Dungeon Gen Gloss UI" --name of the window
-            (800, winHeight DMWindow) -- initial size of the window
-            (0, 0) -- initial position of the window
+      (InWindow "Dungeon Gen Gloss UI" -- name of the window
+            (800, winHeight DMWindow)  -- initial size of the window
+            (0, 0)                     -- initial position of the window
       )
 
 
@@ -166,8 +177,8 @@ handleDown (SpecialKey KeySpace)    = toggleUpdating
 handleDown (Char       'g')         = toggleGridVisibility
 handleDown (SpecialKey KeyDown)     = modMinArea (+3)
 handleDown (SpecialKey KeyUp)       = modMinArea (subtract 3)
-handleDown (SpecialKey KeyLeft)     = id
-handleDown (SpecialKey KeyRight)    = id
+handleDown (SpecialKey KeyLeft)     = modCyclesPct (subtract 0.01)
+handleDown (SpecialKey KeyRight)    = modCyclesPct (+0.01)
 handleDown (MouseButton LeftButton) = id
 handleDown _                        = id
 
@@ -212,23 +223,22 @@ boundsToGlossRect ((x1,y1), (x2,y2)) = (w,h,(x0,y0))
         w = (x2 - x1)
         h = (y2 - y1)
 
+data FillMode = Wire | Solid deriving (Eq)
 drawState :: GS -> Picture
-drawState gs = Pictures $ [ 
-    drawBackground
-  , scale 6 6 $ Pictures [ 
+drawState gs = 
+  scale 6 6 $ Pictures [ 
       if gGridVisible gs then drawGrid (gTolerance gs) else blank
       -- , drawAxes
-     , onlyOn 1 $ Color ddddgreen $ drawParticles (gParticles gs)
-     , onlyOn 2 $ Color ddgreen   $ drawParticles (gsIntersectedRoomPs grs) 
+     , onlyOn 1 $ Color ddddgreen $ drawParticles Wire (gParticles gs)
+     , onlyOn 2 $ Color ddgreen   $ drawParticles Wire (gsIntersectedRoomPs grs) 
      , onlyOn 7 $ Color yellow    $ drawLines $ gsRectiLines grs
-     , onlyOn 3 $ Color lgreen    $ drawParticles (gsBigRoomPs grs) 
+     , onlyOn 3 $ Color green     $ drawParticles Solid (gsBigRoomPs grs) 
      , onlyOn 4 $ Color ddyellow  $ drawGraph $ gsTriGraph grs
      , onlyOn 5 $ Color red       $ drawGraph $ gsMSTWithCycles grs
      , onlyOn 6 $ Color white     $ drawGraph $ gsMST grs
-     , onlyOn 9 $ Color orange    $ drawParticles $ gsFillerPs grs
-     , onlyOn 8 $ Color white     $ drawParticles $ gsIntersectedFillerPs grs
+     , onlyOn 9 $ Color orange    $ drawParticles Wire $ gsFillerPs grs
+     , onlyOn 8 $ Color white     $ drawParticles Wire $ gsIntersectedFillerPs grs
     ]
-  ]
   where grs = gGraphs gs 
         onlyOn n pic = if gVisibilities gs M.! n then pic else Blank
 
@@ -260,15 +270,14 @@ drawLines = Pictures . map drawLine
 drawLine ::  Path -> Picture
 drawLine ps = Line ps
 
-drawParticles ::  [Particle Rect] -> Picture
-drawParticles = Pictures . map drawParticle
+drawParticles :: FillMode -> [Particle Rect] -> Picture
+drawParticles fillMode = Pictures . map (drawParticle fillMode)
 
-drawParticle ::  Particle Rect -> Picture
-drawParticle (Particle (x,y) _vel _rad (Rect w h _)) = 
-  translate x y $ rectangleWire wf hf
-  where wf = fromIntegral w
+drawParticle :: FillMode -> Particle Rect -> Picture
+drawParticle fillMode (Particle (x,y) _vel _rad (Rect w h _)) = 
+  translate x y $ geomFn wf hf
+  where 
+        geomFn = case fillMode of; Solid -> rectangleSolid; Wire -> rectangleWire
+        wf = fromIntegral w
         hf = fromIntegral h
-
-drawBackground :: Picture
-drawBackground = Color black $ rectangleSolid 2000 2000 
 
