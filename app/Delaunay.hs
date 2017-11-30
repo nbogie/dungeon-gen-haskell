@@ -1,5 +1,5 @@
 {-#LANGUAGE BangPatterns #-}
-module Delaunay(triangulate) where
+module Delaunay (triangulate) where
 
 -- This module by Marcel Ruegenberg
 -- https://github.com/mruegenberg/Delaunay
@@ -17,8 +17,6 @@ import qualified Data.HashSet as HSet
 import Data.Maybe(fromJust)
 
 import Data.List
-
-
 
 -- | Generate the Delaunay triangulation of a set of points
 triangulate :: [Vector2] -> [(Vector2,Vector2,Vector2)]
