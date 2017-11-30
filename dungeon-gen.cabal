@@ -2,7 +2,7 @@ name:                dungeon-gen
 version:             0.1.0.0
 synopsis:            A quick, interactive Dungeon generation toy
 description:         A beginner's rough and ready interactive dungeon generation implementation based on the writeup by Phi Dinh at http://www.reddit.com/r/gamedev/comments/1dlwc4/procedural_dungeon_generation_algorithm_explained
-homepage:            https://github.com/githubuser/colorlovers-api-demo#readme
+homepage:            https://github.com/nbogie/dungeon-gen#readme
 license:             MIT
 license-file:        docs/LICENSE
 -- The package author(s).
