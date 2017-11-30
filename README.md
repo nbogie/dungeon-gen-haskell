@@ -7,10 +7,10 @@ This is not an example of good haskell practice.
 
 Keys
 ----
-'1' through '9'                -> toggle visibility of each layer
-'Ctrl-1' through 'Ctrl-9'      -> Snap to grid of that tolerance
-'r'                            -> rerandomize the starting rectangles, keeping prefs
-'g'                            -> turn grid visibility on and off
-'Space'                        -> pause/unpause updates
-'Cursor Up' / 'Cursor Down'    -> Inc / Dec the minimum area param used to identify a major room
-'Cursor Left' / 'Cursor Right' -> Inc / Dec the percentage of extra edges added to the MST (more = more cycles)
+* '1' through '9'                -> toggle visibility of each layer
+* 'Ctrl-1' through 'Ctrl-9'      -> Snap to grid of that tolerance
+* 'r'                            -> rerandomize the starting rectangles, keeping prefs
+* 'g'                            -> turn grid visibility on and off
+* 'Space'                        -> pause/unpause updates
+* 'Cursor Up' / 'Cursor Down'    -> Inc / Dec the minimum area param used to identify a major room
+* 'Cursor Left' / 'Cursor Right' -> Inc / Dec the percentage of extra edges added to the MST (more = more cycles)
