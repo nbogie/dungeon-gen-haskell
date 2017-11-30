@@ -1,6 +1,7 @@
 module Main where
 
-import Graphics.Triangulation.Delaunay
+-- import Graphics.Triangulation.Delaunay
+import Delaunay
 import System.Random
 import System.Environment (getArgs)
 import Data.Vector.V2

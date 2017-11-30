@@ -1,6 +1,7 @@
 module Triangulation where
 import Types
-import qualified Graphics.Triangulation.Delaunay as DL
+-- import qualified Graphics.Triangulation.Delaunay as DL
+import qualified Delaunay as DL
 import Data.Vector.V2
 import GHC.Float (double2Float, float2Double)
 import Data.List (nub)
