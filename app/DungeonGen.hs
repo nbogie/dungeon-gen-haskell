@@ -2,7 +2,7 @@
 module DungeonGen where
 -- import Debug.Trace
 import System.Random
-import Data.Random.Normal
+import DataRandomNormal
 import Data.List (foldl')
 import qualified Data.Map as M
 

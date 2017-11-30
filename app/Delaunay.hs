@@ -1,6 +1,8 @@
 {-#LANGUAGE BangPatterns #-}
 module Delaunay (triangulate) where
 
+-- quick workaround copy, as stack can't find this pkg.
+
 -- This module by Marcel Ruegenberg
 -- https://github.com/mruegenberg/Delaunay
 

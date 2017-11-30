@@ -49,7 +49,7 @@ executable dungeon-gen-exe
                         , pretty-show >= 1.5.0
                         , hashable
                         , unordered-containers
-                        , normaldistribution >= 1.1.0.3
+                        -- , normaldistribution >= 1.1.0.3
                         -- , delaunay >= 0.1
   default-language:    Haskell2010
 

@@ -146,7 +146,7 @@ guimain dispMode gen = do
   where
     winHeight DMFull = 1280
     winHeight DMWindow = 900
-    display DMFull = FullScreen (winHeight DMFull, 800)
+    display DMFull = FullScreen
     display DMWindow = 
       (InWindow "Dungeon Gen Gloss UI" -- name of the window
             (800, winHeight DMWindow)  -- initial size of the window
