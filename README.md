@@ -14,7 +14,7 @@ This is not an example of good haskell practice.
 * 'Space'                        -> pause/unpause updates
 * 'Cursor Up' / 'Cursor Down'    -> Inc / Dec the minimum area param used to identify a major room
 * 'Cursor Left' / 'Cursor Right' -> Inc / Dec the percentage of extra edges added to the MST (more = more cycles)
-
+* 'd' -> dump dungeon to text file: dump.txt
 
 ## Screenshots
 
